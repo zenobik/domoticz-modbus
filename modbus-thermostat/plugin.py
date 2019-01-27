@@ -10,7 +10,7 @@
 # NOTE: Some "name" fields are abused to put in more options ;-)
 #
 """
-<plugin key="ModbusTEMP-WRITE" name="Modbus Temp RTU/ASCII/TCP - WRITE v1.0.8" author="S. Ebeltjes / domoticx.nl" version="1.0.8" externallink="" wikilink="https://github.com/DomoticX/domoticz-modbus/">
+<plugin key="Modbus Thermostat" name="Modbus Thermostat" author="S. Ebeltjes / domoticx.nl & zenobik" version="1.0.0" externallink="" wikilink="https://github.com/zenobik/domoticz-modbus/">
     <params>
         <param field="Mode4" label="Debug" width="120px">
             <options>
@@ -55,6 +55,15 @@
             </options>
         </param>
         <param field="Address" label="Device address" width="120px" required="true"/>
+        <param field="Mode5" label="Divide value" width="100px" required="true">
+            <options>
+                <option label="No" value="div0" default="true"/>
+                <option label="Divide /10" value="div10"/>
+                <option label="Divide /100" value="div100"/>
+                <option label="Divide /1000" value="div1000"/>
+                <option label="Divide /10000" value="div10000"/>
+            </options>
+        </param>
         <param field="Username" label="Modbus Function" width="280px" required="true">
             <options>
                 <option label="Write Single Holding Register (Function 6)" value="6" default="true"/>
@@ -122,17 +131,16 @@ class BasePlugin:
         if (Parameters["Mode3"] == "S2B8PO"): StopBits, ByteSize, Parity = 2, 8, "O"
 
         # Which payload to execute?
-        payload = (Level*100.0) # Set payload from slider/scroll
-        # Set payload if a button has been pressed
-        #if (str(Command) == "On"): payload = Parameters["Mode5"]
-        #if (str(Command) == "Off"): payload = Parameters["Mode6"]
+        if (Parameters["Mode5"] == "div0"): payload = Level
+        if (Parameters["Mode5"] == "div10"): payload = Level *10.0
+        if (Parameters["Mode5"] == "div100"): payload = Level * 100.0
+        if (Parameters["Mode5"] == "div1000"): payload = Level * 1000.0
+        if (Parameters["Mode5"] == "div10000"): payload = Level * 10000.0
 
         ###################################
         # pymodbus: RTU / ASCII
         ###################################
         if (Parameters["Mode1"] == "rtu" or Parameters["Mode1"] == "ascii"):
-          Domoticz.Debug("MODBUS DEBUG USB SERIAL HW - Port="+Parameters["SerialPort"]+" BaudRate="+Parameters["Mode2"]+" StopBits="+str(StopBits)+" ByteSize="+str(ByteSize)+" Parity="+Parity)
-          Domoticz.Debug("MODBUS DEBUG USB SERIAL CMD - Method="+Parameters["Mode1"]+" Address="+Parameters["Address"]+" Register="+Parameters["Password"]+" Function="+Parameters["Username"]+" PayLoadON="+Parameters["Mode5"]+" PayLoadOFF="+Parameters["Mode6"])
           try:
             client = ModbusSerialClient(method=Parameters["Mode1"], port=Parameters["SerialPort"], stopbits=StopBits, bytesize=ByteSize, parity=Parity, baudrate=int(Parameters["Mode2"]), timeout=1, retries=2)
           except:
@@ -149,7 +157,6 @@ class BasePlugin:
             client.close()
           except:
             Domoticz.Log("Modbus error communicating! (RTU/ASCII/RTU over TCP), check your settings!")
-        Devices[1].Update(int(Level*10), str(Level))
 
     def onNotification(self, Name, Subject, Text, Status, Priority, Sound, ImageFile):
         Domoticz.Log("Notification: " + Name + "," + Subject + "," + Text + "," + Status + "," + str(Priority) + "," + Sound + "," + ImageFile)
@@ -182,9 +189,12 @@ class BasePlugin:
             Domoticz.Debug("MODBUS DEBUG RESPONSE: " + str(data.registers[0]))
         except:
             Domoticz.Log("Modbus error communicating! (RTU/ASCII/RTU over TCP), check your settings!")
-
+        # Which payload to execute?
         value = data.registers[0]
-        value = round(value / 100, 2)
+        if (Parameters["Mode5"] == "div10"): value = round(value / 10, 2)
+        if (Parameters["Mode5"] == "div100"): value = round(value / 100, 2)
+        if (Parameters["Mode5"] == "div1000"): value = round(value / 1000, 2)
+        if (Parameters["Mode5"] == "div10000"): value = round(value / 10000, 2)
         Devices[1].Update(int(value*10), str(value))
 
 
